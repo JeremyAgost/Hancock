@@ -1,0 +1,34 @@
+.DS_Store
+
+# Thumbnails
+._*
+
+# Files that might appear on external disk
+.Spotlight-V100
+.Trashes
+
+# Vim
+.*.sw[a-z]
+*.un~
+Session.vim
+.netrwhist
+
+# Xcode
+*.mode1v3
+*.mode2v3
+build/
+*.pbxuser
+*.perspective
+*.perspectivev3
+xcuserdata
+*~.nib
+*.ipa
+*.xccheckout
+*.xcscmblueprint
+.LSOverride
+
+# IDEA files
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/misc.xml
+.idea/*plugin.xml
