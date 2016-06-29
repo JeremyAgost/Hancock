@@ -11,11 +11,13 @@
 
 @implementation ViewController
 
-- (void)viewDidLoad {
-	
+/*
+ * Sets up some UI elements and initializes other members
+ */
+
+- (void)viewDidLoad
+{
 	[super viewDidLoad];
-	
-	[self.view registerForDraggedTypes:@[(__bridge id)kUTTypeFileURL]];
 	
 	[self.spinner setHidden:YES];
 	
@@ -41,11 +43,19 @@
 	[self validateButtons];
 }
 
+/*
+ * The Sign... button is only enabled if there is an identity in the list to be selected
+ */
+
 - (void)validateButtons
 {
 	self.popup.enabled = self.popup.numberOfItems > 0;
 	self.signButton.enabled = self.popup.enabled;
 }
+
+/*
+ * Helper that makes an NSOpenPanel useful for choosing single files
+ */
 
 static NSOpenPanel * _CreateOpenPanel()
 {
@@ -56,6 +66,10 @@ static NSOpenPanel * _CreateOpenPanel()
 	openPanel.allowsMultipleSelection = NO;
 	return openPanel;
 }
+
+/*
+ * Sign... button action handler that prompts for a file and invokes the signFile:withIdentity: method
+ */
 
 - (IBAction)actionSignFile:(id)sender
 {
@@ -69,19 +83,28 @@ static NSOpenPanel * _CreateOpenPanel()
 		
 		SecIdentityRef chosenIdentity = [self copySelectedIdentity];
 		
-		if (signFileURL != nil && chosenIdentity != NULL) {
+		if (signFileURL != nil) {
 			
-			dispatch_async(dispatch_get_global_queue(0, 0), ^{
+			if (chosenIdentity != nullptr) {
 				
-				[self startSpinning];
-				
-				[self signFile:signFileURL withIdentity:chosenIdentity];
-				
-				[self stopSpinning];
-			});
+				dispatch_async(dispatch_get_global_queue(0, 0), ^{
+					
+					[self startSpinning];
+					
+					[self signFile:signFileURL withIdentity:chosenIdentity];
+					
+					[self stopSpinning];
+					
+					CFRelease(chosenIdentity);
+				});
+			}
 		}
 	}
 }
+
+/*
+ * Unsign... button action handler that prompts for a file and invokes the unsignFile: method
+ */
 
 - (IBAction)actionUnsignFile:(id)sender
 {
@@ -107,29 +130,48 @@ static NSOpenPanel * _CreateOpenPanel()
 	}
 }
 
+/*
+ * Gets the identity object for the item currently selected in the list
+ */
+
 - (SecIdentityRef)copySelectedIdentity
 {
 	auto chosenIndex = self.popup.indexOfSelectedItem;
 	
 	if (chosenIndex >= self.loadedIdentities.count) {
-		return nil;
+		return nullptr;
 	}
 	
 	return (SecIdentityRef)CFBridgingRetain(self.loadedIdentities[chosenIndex]);
 }
 
+/*
+ * External method that can be used to invoke the sign action on a filename we got elsewhere
+ */
+
 - (void)handleDraggedFilename:(NSString *)filename
 {
 	auto chosenIdentity = [self copySelectedIdentity];
 	
-	[self startSpinning];
-	
-	[self signFile:[NSURL fileURLWithPath:filename] withIdentity:chosenIdentity];
-	
-	[self stopSpinning];
-	
-	CFRelease(chosenIdentity);
+	if (chosenIdentity != nullptr) {
+		
+		dispatch_async(dispatch_get_global_queue(0, 0), ^{
+			
+			[self startSpinning];
+			
+			[self signFile:[NSURL fileURLWithPath:filename] withIdentity:chosenIdentity];
+			
+			[self stopSpinning];
+			
+			CFRelease(chosenIdentity);
+		});
+	}
 }
+
+/*
+ * Loads the popup list by asking Keychain for all identities and getting their certs' name and serial number for display
+ * Also populates an array member with the valid identities so we can sign with a chosen one later
+ */
 
 - (void)loadIdentities
 {
@@ -150,17 +192,16 @@ static NSOpenPanel * _CreateOpenPanel()
 		return;
 	}
 	
+	// Clear the array and popup menu
 	dispatch_async(dispatch_get_main_queue(), ^{
 		[self.loadedIdentities removeAllObjects];
 		[self.popup removeAllItems];
 	});
 	
-	SecKeychainRef keychain;
-	oserr = SecKeychainCopyDefault(&keychain);
-	
 	NSArray * idents = CFBridgingRelease(identsCF);
 	for (id ident in idents) {
 		
+		// The certificate has the useful metadata for display
 		SecCertificateRef cert = nullptr;
 		oserr = SecIdentityCopyCertificate((__bridge SecIdentityRef)ident, &cert);
 		
@@ -196,6 +237,7 @@ static NSOpenPanel * _CreateOpenPanel()
 			// Popup menu item title is the name of the cert followed by serial number
 			NSString * title = [NSString stringWithFormat:@"%@ [%@]", name, serialNumber];
 			
+			// Add this identity to the array and popup menu
 			dispatch_async(dispatch_get_main_queue(), ^{
 				
 				// Popups can only contains unique titles so make sure there are no dupes
@@ -212,6 +254,10 @@ static NSOpenPanel * _CreateOpenPanel()
 	});
 }
 
+/*
+ * This method signs a file with the given identity and prompts the user where to save it
+ */
+
 - (void)signFile:(NSURL*)fileURL withIdentity:(SecIdentityRef)chosenIdentity
 {
 	auto data = [NSData dataWithContentsOfURL:fileURL];
@@ -222,14 +268,8 @@ static NSOpenPanel * _CreateOpenPanel()
 	
 	OSStatus oserr;
 	
-	SecCertificateRef cert = nullptr;
-	SecIdentityCopyCertificate(chosenIdentity, &cert);
-	
-	CFStringRef nameCF = nullptr;
-	oserr = SecCertificateCopyCommonName(cert, &nameCF);
-	
-	CFRelease(cert);
-	
+	// This method simply signs data when given an identity
+	// It may generate a user prompt for permission to sign
 	CFDataRef outDataCF = NULL;
 	oserr = CMSEncodeContent(chosenIdentity, NULL, NULL, false, kCMSAttrNone,
 							 data.bytes, data.length, &outDataCF);
@@ -243,6 +283,7 @@ static NSOpenPanel * _CreateOpenPanel()
 	NSData * outData = CFBridgingRelease(outDataCF);
 	auto newFilename = [self filenameForURL:fileURL withAppendedString:@"Signed"];
 	
+	// Display a save box with a new default filename
 	dispatch_async(dispatch_get_main_queue(), ^{
 		
 		auto savePanel = [NSSavePanel new];
@@ -257,6 +298,10 @@ static NSOpenPanel * _CreateOpenPanel()
 	});
 }
 
+/*
+ * This method unsigns a file and prompts the user where to save it
+ */
+
 - (void)unsignFile:(NSURL*)fileURL
 {
 	auto data = [NSData dataWithContentsOfURL:fileURL];
@@ -268,6 +313,8 @@ static NSOpenPanel * _CreateOpenPanel()
 	CMSDecoderRef decoder = NULL;
 	CFDataRef outDataCF = NULL;
 	
+	// Create a decoder, add the data, finalize and retrieve the resulting data
+	// If the data isn't signed, an error code will be returned along the way
 	OSStatus oserr = CMSDecoderCreate(&decoder);
 	if (oserr == noErr) {
 		oserr = CMSDecoderUpdateMessage(decoder, data.bytes, data.length);
@@ -285,7 +332,9 @@ static NSOpenPanel * _CreateOpenPanel()
 		// Decoding succeeded
 		auto newFilename = [self filenameForURL:fileURL withAppendedString:@"Unsigned"];
 		
+		// Display a save box with a new default filename
 		dispatch_async(dispatch_get_main_queue(), ^{
+			
 			auto savePanel = [NSSavePanel new];
 			savePanel.canCreateDirectories = YES;
 			savePanel.nameFieldStringValue = newFilename;
@@ -302,6 +351,10 @@ static NSOpenPanel * _CreateOpenPanel()
 	}
 }
 
+/*
+ * Generates a new filename based on a URL with a string appended to it after a hyphen
+ */
+
 - (NSString *)filenameForURL:(NSURL*)fileURL withAppendedString:(NSString*)append
 {
 	auto originalFilename = fileURL.lastPathComponent;
@@ -309,6 +362,10 @@ static NSOpenPanel * _CreateOpenPanel()
 	
 	return [NSString stringWithFormat:@"%@-%@.%@", basename, append, originalFilename.pathExtension];
 }
+
+/*
+ * Increment the count of active jobs and start the spinner if needed
+ */
 
 - (void)startSpinning
 {
@@ -323,6 +380,10 @@ static NSOpenPanel * _CreateOpenPanel()
 	});
 }
 
+/*
+ * Decrement the count of active jobs and stop the spinner if needed
+ */
+
 - (void)stopSpinning
 {
 	dispatch_async(dispatch_get_main_queue(), ^{
@@ -335,6 +396,10 @@ static NSOpenPanel * _CreateOpenPanel()
 		}
 	});
 }
+
+/*
+ * Convenience method for showing an alert box
+ */
 
 - (void)showAlertWithMessage:(NSString*)message informativeText:(NSString*)informativeText
 {

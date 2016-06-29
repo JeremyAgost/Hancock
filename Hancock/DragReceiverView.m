@@ -8,8 +8,13 @@
 
 #import "DragReceiverView.h"
 #import "ViewController.h"
+#import "AppDelegate.h"
 
 @implementation DragReceiverView
+
+/*
+ * These methods indicate that we support the given drag operation type
+ */
 
 - (NSDragOperation)draggingEntered:(id<NSDraggingInfo>)sender
 {
@@ -21,6 +26,10 @@
 	return [self allowedDraggingOperationForSender:sender];
 }
 
+/*
+ * This method receives the drag operation, with a file list
+ */
+
 - (BOOL)performDragOperation:(id<NSDraggingInfo>)sender
 {
 	if ([self allowedDraggingOperationForSender:sender] == NSDragOperationNone) {
@@ -29,13 +38,17 @@
 	
 	NSArray * filenames = [sender.draggingPasteboard propertyListForType:NSFilenamesPboardType];
 	
-	id vc = [self mainViewController];
+	id vc = [(AppDelegate*)NSApp.delegate mainViewController];
 	for (NSString * filename in filenames) {
 		[vc handleDraggedFilename:filename];
 	}
 	
 	return YES;
 }
+
+/*
+ * Explicitly support only "Filenames" to be dragged in, with "Copy" behavior
+ */
 
 - (NSDragOperation)allowedDraggingOperationForSender:(id<NSDraggingInfo>)sender
 {
@@ -48,16 +61,9 @@
 	return NSDragOperationNone;
 }
 
-- (ViewController *)mainViewController
-{
-	for (NSWindow * window in NSApp.orderedWindows) {
-		id vc = window.contentViewController;
-		if ([vc isKindOfClass:[ViewController class]]) {
-			return vc;
-		}
-	}
-	return nil;
-}
+/*
+ * Register for drag and drop support
+ */
 
 - (void)awakeFromNib
 {

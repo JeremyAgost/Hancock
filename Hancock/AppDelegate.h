@@ -8,7 +8,11 @@
 
 #import <Cocoa/Cocoa.h>
 
+@class ViewController;
+
 @interface AppDelegate : NSObject <NSApplicationDelegate>
+
+- (ViewController *)mainViewController;
 
 @end
 

@@ -16,15 +16,20 @@
 
 @implementation AppDelegate
 
-- (void)applicationDidFinishLaunching:(NSNotification *)aNotification {
-	
+- (void)applicationDidFinishLaunching:(NSNotification *)aNotification
+{
 	// We may need to ask the user for permission to sign
 	SecKeychainSetUserInteractionAllowed(true);
 }
 
-- (void)applicationWillTerminate:(NSNotification *)aNotification {
-	// Insert code here to tear down your application
+- (void)applicationWillTerminate:(NSNotification *)aNotification
+{
+	
 }
+
+/*
+ * Convenience method to get the ViewController object that implements our app functionality
+ */
 
 - (ViewController *)mainViewController
 {
@@ -36,6 +41,10 @@
 	}
 	return nil;
 }
+
+/*
+ * The openFile: and openFiles: methods are invoked when items are dragged onto our dock icon
+ */
 
 - (BOOL)application:(NSApplication *)sender openFile:(NSString *)filename
 {
