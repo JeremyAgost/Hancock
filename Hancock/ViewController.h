@@ -11,10 +11,12 @@
 @interface ViewController : NSViewController
 
 @property (nonatomic, weak) IBOutlet NSPopUpButton * popup;
-@property (nonatomic, weak) IBOutlet NSButton * chooseButton;
+@property (nonatomic, weak) IBOutlet NSButton * unsignButton;
 @property (nonatomic, weak) IBOutlet NSButton * signButton;
+@property (nonatomic, weak) IBOutlet NSProgressIndicator * spinner;
 
-@property (nonatomic, strong) NSURL * chosenFileURL;
+@property (nonatomic, strong) NSMutableArray * loadedIdentities;
+@property (nonatomic, readwrite) NSInteger spinCount;
 
 - (void)handleDraggedFilename:(NSString *)filename;
 

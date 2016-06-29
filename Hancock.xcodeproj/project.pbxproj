@@ -17,7 +17,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		3F9BF36D1D21CD5A00805054 /* CertAndSign.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CertAndSign.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3F9BF36D1D21CD5A00805054 /* Hancock.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Hancock.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3F9BF3701D21CD5A00805054 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		3F9BF3711D21CD5A00805054 /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
 		3F9BF3741D21CD5A00805054 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
@@ -47,7 +47,7 @@
 			isa = PBXGroup;
 			children = (
 				3F9BF3841D21CD6600805054 /* Security.framework */,
-				3F9BF36F1D21CD5A00805054 /* CertAndSign */,
+				3F9BF36F1D21CD5A00805054 /* Hancock */,
 				3F9BF36E1D21CD5A00805054 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -55,12 +55,12 @@
 		3F9BF36E1D21CD5A00805054 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				3F9BF36D1D21CD5A00805054 /* CertAndSign.app */,
+				3F9BF36D1D21CD5A00805054 /* Hancock.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		3F9BF36F1D21CD5A00805054 /* CertAndSign */ = {
+		3F9BF36F1D21CD5A00805054 /* Hancock */ = {
 			isa = PBXGroup;
 			children = (
 				3F9BF3701D21CD5A00805054 /* AppDelegate.h */,
@@ -74,7 +74,7 @@
 				3F9BF37E1D21CD5A00805054 /* Info.plist */,
 				3F9BF3731D21CD5A00805054 /* Supporting Files */,
 			);
-			path = CertAndSign;
+			path = Hancock;
 			sourceTree = "<group>";
 		};
 		3F9BF3731D21CD5A00805054 /* Supporting Files */ = {
@@ -88,9 +88,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		3F9BF36C1D21CD5A00805054 /* CertAndSign */ = {
+		3F9BF36C1D21CD5A00805054 /* Hancock */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 3F9BF3811D21CD5A00805054 /* Build configuration list for PBXNativeTarget "CertAndSign" */;
+			buildConfigurationList = 3F9BF3811D21CD5A00805054 /* Build configuration list for PBXNativeTarget "Hancock" */;
 			buildPhases = (
 				3F9BF3691D21CD5A00805054 /* Sources */,
 				3F9BF36A1D21CD5A00805054 /* Frameworks */,
@@ -100,9 +100,9 @@
 			);
 			dependencies = (
 			);
-			name = CertAndSign;
+			name = Hancock;
 			productName = CertAndSign;
-			productReference = 3F9BF36D1D21CD5A00805054 /* CertAndSign.app */;
+			productReference = 3F9BF36D1D21CD5A00805054 /* Hancock.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -119,7 +119,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 3F9BF3681D21CD5A00805054 /* Build configuration list for PBXProject "CertAndSign" */;
+			buildConfigurationList = 3F9BF3681D21CD5A00805054 /* Build configuration list for PBXProject "Hancock" */;
 			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
@@ -132,7 +132,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				3F9BF36C1D21CD5A00805054 /* CertAndSign */,
+				3F9BF36C1D21CD5A00805054 /* Hancock */,
 			);
 		};
 /* End PBXProject section */
@@ -261,9 +261,9 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
-				INFOPLIST_FILE = CertAndSign/Info.plist;
+				INFOPLIST_FILE = Hancock/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
-				PRODUCT_BUNDLE_IDENTIFIER = com.GroundControl.CertAndSign;
+				PRODUCT_BUNDLE_IDENTIFIER = com.GroundControl.Hancock;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -273,9 +273,9 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
-				INFOPLIST_FILE = CertAndSign/Info.plist;
+				INFOPLIST_FILE = Hancock/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
-				PRODUCT_BUNDLE_IDENTIFIER = com.GroundControl.CertAndSign;
+				PRODUCT_BUNDLE_IDENTIFIER = com.GroundControl.Hancock;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -283,7 +283,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		3F9BF3681D21CD5A00805054 /* Build configuration list for PBXProject "CertAndSign" */ = {
+		3F9BF3681D21CD5A00805054 /* Build configuration list for PBXProject "Hancock" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				3F9BF37F1D21CD5A00805054 /* Debug */,
@@ -292,7 +292,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		3F9BF3811D21CD5A00805054 /* Build configuration list for PBXNativeTarget "CertAndSign" */ = {
+		3F9BF3811D21CD5A00805054 /* Build configuration list for PBXNativeTarget "Hancock" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				3F9BF3821D21CD5A00805054 /* Debug */,

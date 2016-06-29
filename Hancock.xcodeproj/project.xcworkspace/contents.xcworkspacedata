@@ -2,6 +2,6 @@
 <Workspace
    version = "1.0">
    <FileRef
-      location = "self:CertAndSign.xcodeproj">
+      location = "self:/Users/jeremy/Local Documents/Hancock/Hancock.xcodeproj">
    </FileRef>
 </Workspace>
