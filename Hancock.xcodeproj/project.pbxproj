@@ -17,6 +17,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		3F2E9AA01D2466F700AF3ABF /* SecCodeSigner.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecCodeSigner.h; sourceTree = "<group>"; };
 		3F9BF36D1D21CD5A00805054 /* Hancock.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Hancock.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3F9BF3701D21CD5A00805054 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		3F9BF3711D21CD5A00805054 /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
@@ -73,6 +74,7 @@
 				3F9BF37B1D21CD5A00805054 /* Main.storyboard */,
 				3F9BF37E1D21CD5A00805054 /* Info.plist */,
 				3F9BF3731D21CD5A00805054 /* Supporting Files */,
+				3F2E9AA01D2466F700AF3ABF /* SecCodeSigner.h */,
 			);
 			path = Hancock;
 			sourceTree = "<group>";
