@@ -81,9 +81,9 @@ static NSOpenPanel * _CreateOpenPanel()
 		// Make local ref so we can use them on a global queue without race condition
 		auto signFileURL = openPanel.URL;
 		
-		SecIdentityRef chosenIdentity = [self copySelectedIdentity];
-		
 		if (signFileURL != nil) {
+			
+			SecIdentityRef chosenIdentity = [self copySelectedIdentity];
 			
 			if (chosenIdentity != nullptr) {
 				
@@ -168,6 +168,22 @@ static NSOpenPanel * _CreateOpenPanel()
 	}
 }
 
+static NSString * const kStrCheckmark = @"✅";
+//Checkmark
+//Unicode: U+2714 U+FE0F, UTF-8: E2 9C 94 EF B8 8F
+
+static NSString * const kStrCross = @"❌";
+//cross mark
+//Unicode: U+274C, UTF-8: E2 9D 8C
+
+static NSString * const kStrCaution = @"⚠️";
+//warning sign
+//Unicode: U+26A0 U+FE0F, UTF-8: E2 9A A0 EF B8 8F
+
+static NSString * const kStrQuestion = @"❓";
+//black question mark ornament
+//Unicode: U+2753, UTF-8: E2 9D 93
+
 /*
  * Loads the popup list by asking Keychain for all identities and getting their certs' name and serial number for display
  * Also populates an array member with the valid identities so we can sign with a chosen one later
@@ -198,21 +214,55 @@ static NSOpenPanel * _CreateOpenPanel()
 		[self.popup removeAllItems];
 	});
 	
+	SecPolicyRef policy = SecPolicyCreateBasicX509();
+	
 	NSArray * idents = CFBridgingRelease(identsCF);
 	for (id ident in idents) {
 		
 		// The certificate has the useful metadata for display
 		SecCertificateRef cert = nullptr;
-		oserr = SecIdentityCopyCertificate((__bridge SecIdentityRef)ident, &cert);
+		SecIdentityCopyCertificate((__bridge SecIdentityRef)ident, &cert);
 		
 		if (cert == nullptr) {
 			continue;
 		}
 		
 		CFStringRef nameCF = nullptr;
-		oserr = SecCertificateCopyCommonName(cert, &nameCF);
+		SecCertificateCopyCommonName(cert, &nameCF);
 		
 		CFDataRef serialCF = SecCertificateCopySerialNumber(cert, nullptr);
+		
+		SecTrustRef trust = nullptr;
+		SecTrustCreateWithCertificates(cert, policy, &trust);
+		
+		SecTrustResultType result;
+		SecTrustEvaluate(trust, &result);
+		
+		CFRelease(trust);
+		
+		NSString * trustIndicator;
+		switch (result) {
+			case kSecTrustResultProceed:
+			case kSecTrustResultUnspecified:
+				trustIndicator = kStrCheckmark;
+				break;
+				
+			case kSecTrustResultConfirm:
+				trustIndicator = kStrQuestion;
+				break;
+				
+			case kSecTrustResultRecoverableTrustFailure:
+				trustIndicator = kStrCaution;
+				break;
+				
+			case kSecTrustResultFatalTrustFailure:
+			case kSecTrustResultOtherError:
+			case kSecTrustResultInvalid:
+			case kSecTrustResultDeny:
+			default:
+				trustIndicator = kStrCross;
+				break;
+		}
 		
 		CFRelease(cert);
 		
@@ -235,7 +285,7 @@ static NSOpenPanel * _CreateOpenPanel()
 			NSNumber * serialNumber = CFBridgingRelease(CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt64Type, &serialBig));
 			
 			// Popup menu item title is the name of the cert followed by serial number
-			NSString * title = [NSString stringWithFormat:@"%@ [%@]", name, serialNumber];
+			NSString * title = [NSString stringWithFormat:@"%@ %@ [%@]", trustIndicator, name, serialNumber];
 			
 			// Add this identity to the array and popup menu
 			dispatch_async(dispatch_get_main_queue(), ^{
@@ -248,6 +298,8 @@ static NSOpenPanel * _CreateOpenPanel()
 			});
 		}
 	}
+	
+	CFRelease(policy);
 	
 	dispatch_async(dispatch_get_main_queue(), ^{
 		[self validateButtons];
