@@ -33,7 +33,7 @@
 	
 	self.loadedIdentities = [NSMutableArray new];
 
-	dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
 		[self loadIdentities];
 	});
 }
@@ -90,11 +90,11 @@ static NSOpenPanel * _CreateOpenPanel()
 				
 				if (chosenIdentity != nullptr) {
 					
-					dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+					dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
 						
 						[self startSpinning];
 						
-						[self signCodeFile:signFileURL withIdentity:chosenIdentity];
+						[self signPackageFile:signFileURL withIdentity:chosenIdentity];
 						
 						[self stopSpinning];
 						
@@ -123,7 +123,7 @@ static NSOpenPanel * _CreateOpenPanel()
 			
 			if (fileURL != nil) {
 				
-				dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+				dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
 					
 					[self startSpinning];
 					
@@ -161,7 +161,7 @@ static NSOpenPanel * _CreateOpenPanel()
 	
 	if (chosenIdentity != nullptr) {
 		
-		dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+		dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
 			
 			[self startSpinning];
 			
@@ -312,64 +312,100 @@ static NSString * const kStrQuestion = @"❓";
 	});
 }
 
-- (void)signFile:(NSURL*)fileURL withIdentity:(SecIdentityRef)chosenIdentity
+/*
+ * Returns YES if a URL represents a .pkg file
+ */
+
+- (BOOL)isPackageURL:(NSURL*)fileURL
 {
 	NSString * extension = fileURL.pathExtension;
-	
-	if ([extension compare:@"pkg" options:NSCaseInsensitiveSearch] == NSOrderedSame ||
-		[extension compare:@"dmg" options:NSCaseInsensitiveSearch] == NSOrderedSame) {
-		[self signCodeFile:fileURL withIdentity:chosenIdentity];
+	return [extension compare:@"pkg" options:NSCaseInsensitiveSearch] == NSOrderedSame;
+}
+
+/*
+ * Decides which signing method to use based on whether the file is a package or not
+ */
+
+- (void)signFile:(NSURL*)fileURL withIdentity:(SecIdentityRef)chosenIdentity
+{
+	if ([self isPackageURL:fileURL]) {
+		[self signPackageFile:fileURL withIdentity:chosenIdentity];
 	}
 	else {
 		[self signOtherFile:fileURL withIdentity:chosenIdentity];
 	}
 }
 
-- (void)signCodeFile:(NSURL*)fileURL withIdentity:(SecIdentityRef)chosenIdentity
+/*
+ * This method signs a package file with the given identity with productsign and prompts the user where to save it
+ */
+
+- (void)signPackageFile:(NSURL*)fileURL withIdentity:(SecIdentityRef)chosenIdentity
 {
-	auto parameters = @{
-						(__bridge id)kSecCodeSignerIdentity: (__bridge id)chosenIdentity,
-						(__bridge id)kSecCodeSignerRequireTimestamp: @YES,
-						};
+	NSURL * tempFileURL = [[NSURL fileURLWithPath:NSTemporaryDirectory()] URLByAppendingPathComponent:[NSUUID new].UUIDString];
+	
 	OSStatus oserr;
 	
-	NSFileManager * fm = [NSFileManager defaultManager];
-	NSURL * tempFileURL = [[NSURL fileURLWithPath:NSTemporaryDirectory()] URLByAppendingPathComponent:[NSUUID UUID].UUIDString];
-	
-	// Copy the package to a temporary URL
-	NSError * fmErr = nil;
-	BOOL fmOk = [fm copyItemAtURL:fileURL toURL:tempFileURL error:&fmErr];;
-	
-	if (!fmOk) {
-		[self showAlertWithMessage:@"Failed to Load Package" informativeText:[NSString stringWithFormat:@"Could not copy the selected package '%@' to a temporary location. File manager says: %@", fileURL.lastPathComponent, fmErr.localizedDescription]];
+	SecCertificateRef cert = nullptr;
+	oserr = SecIdentityCopyCertificate(chosenIdentity, &cert);
+	if (oserr != 0) {
+		NSString * err = CFBridgingRelease(SecCopyErrorMessageString(oserr, nullptr));
+		[self showAlertWithMessage:@"Failed to Sign Package" informativeText:[NSString stringWithFormat:@"An internal error occurred while attempting to sign '%@'. Security says: %@.", fileURL.lastPathComponent, err]];
 		return;
 	}
 	
-	SecCodeSignerRef codeSigner = nullptr;
-	oserr = SecCodeSignerCreate((__bridge CFDictionaryRef)parameters, kSecCSRemoveSignature, &codeSigner);
+	CFStringRef certNameCF = nullptr;
+	oserr = SecCertificateCopyCommonName(cert, &certNameCF);
+	CFRelease(cert);
 	
-	if (oserr != 0) {
+	NSString * certName = CFBridgingRelease(certNameCF);
+	
+	if (oserr != 0 || certName.length == 0) {
 		NSString * err = CFBridgingRelease(SecCopyErrorMessageString(oserr, nullptr));
-		[self showAlertWithMessage:@"Failed to Initialize Signing" informativeText:[NSString stringWithFormat:@"An internal error occurred while attempting to sign '%@'. Security says: %@.", fileURL.lastPathComponent, err]];
+		[self showAlertWithMessage:@"Failed to Sign Package" informativeText:[NSString stringWithFormat:@"Couldn't get the name of the certificate while trying to sign '%@'. Security says: %@.", fileURL.lastPathComponent, err]];
 		return;
 	}
 	
-	SecStaticCodeRef staticCode = nullptr;
-	oserr = SecStaticCodeCreateWithPath((__bridge CFURLRef)tempFileURL, kSecCSDefaultFlags, &staticCode);
+	// Now we set up a shell task to invoke 'productsign'
+	auto task = [NSTask new];
 	
-	if (oserr != 0) {
-		NSString * err = CFBridgingRelease(SecCopyErrorMessageString(oserr, nullptr));
-		[self showAlertWithMessage:@"Failed to Open Package" informativeText:[NSString stringWithFormat:@"An internal error occurred while attempting to sign '%@'. Security says: %@.", fileURL.lastPathComponent, err]];
+	// Capture output using NSPipe
+	task.standardError = [NSPipe new];
+	auto taskFH = [task.standardError fileHandleForReading];
+	
+	// Program name and arguments
+	task.launchPath = @"/usr/bin/productsign";
+	task.arguments = @[@"--sign", certName, fileURL.path, tempFileURL.path];
+	
+	// Run the task
+	[task launch];
+	
+	// We'll wait 60 seconds for the signing to complete
+	static const NSTimeInterval kTimeoutInterval = 60;
+	
+	// Use a semaphore to wait until task exits or a timeout occurs
+	dispatch_semaphore_t waitSem = dispatch_semaphore_create(0);
+	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+		
+		[task waitUntilExit];
+		dispatch_semaphore_signal(waitSem);
+	});
+	
+	auto timedOut = dispatch_semaphore_wait(waitSem, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(NSEC_PER_SEC * kTimeoutInterval)));
+	
+	if (timedOut != 0) {
+		[self showAlertWithMessage:@"Failed to Sign Package" informativeText:[NSString stringWithFormat:@"Timed out while attempting to sign '%@'.", fileURL.lastPathComponent]];
 		return;
 	}
 	
-	CFErrorRef signErrCF = nullptr;
-	oserr = SecCodeSignerAddSignatureWithErrors(codeSigner, staticCode, kSecCSDefaultFlags, &signErrCF);
+	// Get the output strings and close handle
+	auto taskOutput = [[NSString alloc] initWithData:[taskFH readDataToEndOfFile] encoding:NSUTF8StringEncoding];
+	[taskFH closeFile];
 	
-	if (oserr != 0) {
-		NSString * err = CFBridgingRelease(SecCopyErrorMessageString(oserr, nullptr));
-		NSError * signErr = CFBridgingRelease(signErrCF);
-		[self showAlertWithMessage:@"Failed to Add Signatures" informativeText:[NSString stringWithFormat:@"An internal error occurred while attempting to sign '%@'. Errors: %@. Security says: %@.", fileURL.lastPathComponent, signErr.localizedDescription, err]];
+	// Check task result
+	auto result = task.terminationStatus;
+	if (result != 0) {
+		[self showAlertWithMessage:@"Failed to Sign Package" informativeText:[NSString stringWithFormat:@"The signing tool exited with an error while attempting to sign '%@'. from productsign:\n\n%@", fileURL.lastPathComponent, taskOutput]];
 		return;
 	}
 	
@@ -388,6 +424,10 @@ static NSString * const kStrQuestion = @"❓";
 			if (result == NSFileHandlingPanelOKButton) {
 				auto saveURL = savePanel.URL;
 				
+				auto fm = [NSFileManager defaultManager];
+				
+				[fm removeItemAtURL:saveURL error:nil];
+				
 				NSError * fmErr = nil;
 				auto fmOk = [fm moveItemAtURL:tempFileURL toURL:saveURL error:&fmErr];
 				
@@ -396,8 +436,6 @@ static NSString * const kStrQuestion = @"❓";
 					return;
 				}
 			}
-			
-			[fm removeItemAtURL:tempFileURL error:nil];
 		}];
 	});
 }
@@ -454,6 +492,11 @@ static NSString * const kStrQuestion = @"❓";
 
 - (void)unsignFile:(NSURL*)fileURL
 {
+	if ([self isPackageURL:fileURL]) {
+		[self showAlertWithMessage:@"Invalid File Selected" informativeText:@"This tool cannot unsign packages. Sorry!"];
+		return;
+	}
+	
 	auto data = [NSData dataWithContentsOfURL:fileURL];
 	if (data.length == 0) {
 		[self showAlertWithMessage:@"No File Selected" informativeText:@"Please select a CMS encoded file to unsign."];
