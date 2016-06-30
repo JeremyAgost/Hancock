@@ -8,6 +8,8 @@
 
 #import "ViewController.h"
 #import <Security/Security.h>
+#import <Security/SecCode.h>
+#import "SecCodeSigner.h"
 
 @implementation ViewController
 
@@ -31,7 +33,7 @@
 	
 	self.loadedIdentities = [NSMutableArray new];
 
-	dispatch_async(dispatch_get_global_queue(0, 0), ^{
+	dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
 		[self loadIdentities];
 	});
 }
@@ -75,31 +77,33 @@ static NSOpenPanel * _CreateOpenPanel()
 {
 	auto openPanel = _CreateOpenPanel();
 	openPanel.title = @"Choose a file to sign";
-	auto result = [openPanel runModal];
 	
-	if (result == NSFileHandlingPanelOKButton) {
-		// Make local ref so we can use them on a global queue without race condition
-		auto signFileURL = openPanel.URL;
+	[openPanel beginSheetModalForWindow:NSApp.mainWindow completionHandler:^(NSModalResponse result) {
 		
-		if (signFileURL != nil) {
+		if (result == NSFileHandlingPanelOKButton) {
+			// Make local ref so we can use them on a global queue without race condition
+			auto signFileURL = openPanel.URL;
 			
-			SecIdentityRef chosenIdentity = [self copySelectedIdentity];
-			
-			if (chosenIdentity != nullptr) {
+			if (signFileURL != nil) {
 				
-				dispatch_async(dispatch_get_global_queue(0, 0), ^{
+				SecIdentityRef chosenIdentity = [self copySelectedIdentity];
+				
+				if (chosenIdentity != nullptr) {
 					
-					[self startSpinning];
-					
-					[self signFile:signFileURL withIdentity:chosenIdentity];
-					
-					[self stopSpinning];
-					
-					CFRelease(chosenIdentity);
-				});
+					dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+						
+						[self startSpinning];
+						
+						[self signCodeFile:signFileURL withIdentity:chosenIdentity];
+						
+						[self stopSpinning];
+						
+						CFRelease(chosenIdentity);
+					});
+				}
 			}
 		}
-	}
+	}];
 }
 
 /*
@@ -110,24 +114,26 @@ static NSOpenPanel * _CreateOpenPanel()
 {
 	auto openPanel = _CreateOpenPanel();
 	openPanel.title = @"Choose a file to unsign";
-	auto result = [openPanel runModal];
 	
-	if (result == NSFileHandlingPanelOKButton) {
-		// Make local ref so we can use them on a global queue without race condition
-		auto fileURL = openPanel.URL;
+	[openPanel beginSheetModalForWindow:NSApp.mainWindow completionHandler:^(NSModalResponse result) {
 		
-		if (fileURL != nil) {
+		if (result == NSFileHandlingPanelOKButton) {
+			// Make local ref so we can use them on a global queue without race condition
+			auto fileURL = openPanel.URL;
 			
-			dispatch_async(dispatch_get_global_queue(0, 0), ^{
+			if (fileURL != nil) {
 				
-				[self startSpinning];
-				
-				[self unsignFile:fileURL];
-				
-				[self stopSpinning];
-			});
+				dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+					
+					[self startSpinning];
+					
+					[self unsignFile:fileURL];
+					
+					[self stopSpinning];
+				});
+			}
 		}
-	}
+	}];
 }
 
 /*
@@ -155,7 +161,7 @@ static NSOpenPanel * _CreateOpenPanel()
 	
 	if (chosenIdentity != nullptr) {
 		
-		dispatch_async(dispatch_get_global_queue(0, 0), ^{
+		dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
 			
 			[self startSpinning];
 			
@@ -306,11 +312,101 @@ static NSString * const kStrQuestion = @"❓";
 	});
 }
 
+- (void)signFile:(NSURL*)fileURL withIdentity:(SecIdentityRef)chosenIdentity
+{
+	NSString * extension = fileURL.pathExtension;
+	
+	if ([extension compare:@"pkg" options:NSCaseInsensitiveSearch] == NSOrderedSame ||
+		[extension compare:@"dmg" options:NSCaseInsensitiveSearch] == NSOrderedSame) {
+		[self signCodeFile:fileURL withIdentity:chosenIdentity];
+	}
+	else {
+		[self signOtherFile:fileURL withIdentity:chosenIdentity];
+	}
+}
+
+- (void)signCodeFile:(NSURL*)fileURL withIdentity:(SecIdentityRef)chosenIdentity
+{
+	auto parameters = @{
+						(__bridge id)kSecCodeSignerIdentity: (__bridge id)chosenIdentity,
+						(__bridge id)kSecCodeSignerRequireTimestamp: @YES,
+						};
+	OSStatus oserr;
+	
+	NSFileManager * fm = [NSFileManager defaultManager];
+	NSURL * tempFileURL = [[NSURL fileURLWithPath:NSTemporaryDirectory()] URLByAppendingPathComponent:[NSUUID UUID].UUIDString];
+	
+	// Copy the package to a temporary URL
+	NSError * fmErr = nil;
+	BOOL fmOk = [fm copyItemAtURL:fileURL toURL:tempFileURL error:&fmErr];;
+	
+	if (!fmOk) {
+		[self showAlertWithMessage:@"Failed to Load Package" informativeText:[NSString stringWithFormat:@"Could not copy the selected package '%@' to a temporary location. File manager says: %@", fileURL.lastPathComponent, fmErr.localizedDescription]];
+		return;
+	}
+	
+	SecCodeSignerRef codeSigner = nullptr;
+	oserr = SecCodeSignerCreate((__bridge CFDictionaryRef)parameters, kSecCSRemoveSignature, &codeSigner);
+	
+	if (oserr != 0) {
+		NSString * err = CFBridgingRelease(SecCopyErrorMessageString(oserr, nullptr));
+		[self showAlertWithMessage:@"Failed to Initialize Signing" informativeText:[NSString stringWithFormat:@"An internal error occurred while attempting to sign '%@'. Security says: %@.", fileURL.lastPathComponent, err]];
+		return;
+	}
+	
+	SecStaticCodeRef staticCode = nullptr;
+	oserr = SecStaticCodeCreateWithPath((__bridge CFURLRef)tempFileURL, kSecCSDefaultFlags, &staticCode);
+	
+	if (oserr != 0) {
+		NSString * err = CFBridgingRelease(SecCopyErrorMessageString(oserr, nullptr));
+		[self showAlertWithMessage:@"Failed to Open Package" informativeText:[NSString stringWithFormat:@"An internal error occurred while attempting to sign '%@'. Security says: %@.", fileURL.lastPathComponent, err]];
+		return;
+	}
+	
+	CFErrorRef signErrCF = nullptr;
+	oserr = SecCodeSignerAddSignatureWithErrors(codeSigner, staticCode, kSecCSDefaultFlags, &signErrCF);
+	
+	if (oserr != 0) {
+		NSString * err = CFBridgingRelease(SecCopyErrorMessageString(oserr, nullptr));
+		NSError * signErr = CFBridgingRelease(signErrCF);
+		[self showAlertWithMessage:@"Failed to Add Signatures" informativeText:[NSString stringWithFormat:@"An internal error occurred while attempting to sign '%@'. Errors: %@. Security says: %@.", fileURL.lastPathComponent, signErr.localizedDescription, err]];
+		return;
+	}
+	
+	auto newFilename = [self filenameForURL:fileURL withAppendedString:@"Signed"];
+	
+	// Display a save box with a new default filename
+	dispatch_async(dispatch_get_main_queue(), ^{
+		
+		auto savePanel = [NSSavePanel new];
+		savePanel.canCreateDirectories = YES;
+		savePanel.nameFieldStringValue = newFilename;
+		savePanel.title = @"Choose where to save signed package";
+		
+		[savePanel beginSheetModalForWindow:NSApp.mainWindow completionHandler:^(NSModalResponse result) {
+			
+			if (result == NSFileHandlingPanelOKButton) {
+				auto saveURL = savePanel.URL;
+				
+				NSError * fmErr = nil;
+				auto fmOk = [fm moveItemAtURL:tempFileURL toURL:saveURL error:&fmErr];
+				
+				if (!fmOk) {
+					[self showAlertWithMessage:@"Failed to Load Package" informativeText:[NSString stringWithFormat:@"Could not copy the signed package to the target location. File manager says: %@", fmErr.localizedDescription]];
+					return;
+				}
+			}
+			
+			[fm removeItemAtURL:tempFileURL error:nil];
+		}];
+	});
+}
+
 /*
  * This method signs a file with the given identity and prompts the user where to save it
  */
 
-- (void)signFile:(NSURL*)fileURL withIdentity:(SecIdentityRef)chosenIdentity
+- (void)signOtherFile:(NSURL*)fileURL withIdentity:(SecIdentityRef)chosenIdentity
 {
 	auto data = [NSData dataWithContentsOfURL:fileURL];
 	if (data.length == 0) {
@@ -343,10 +439,12 @@ static NSString * const kStrQuestion = @"❓";
 		savePanel.nameFieldStringValue = newFilename;
 		savePanel.title = @"Choose where to save signed data";
 		
-		if ([savePanel runModal] == NSFileHandlingPanelOKButton) {
-			auto saveURL = savePanel.URL;
-			[outData writeToURL:saveURL atomically:YES];
-		}
+		[savePanel beginSheetModalForWindow:NSApp.mainWindow completionHandler:^(NSModalResponse result) {
+			if (result == NSFileHandlingPanelOKButton) {
+				auto saveURL = savePanel.URL;
+				[outData writeToURL:saveURL atomically:YES];
+			}
+		}];
 	});
 }
 
@@ -392,10 +490,12 @@ static NSString * const kStrQuestion = @"❓";
 			savePanel.nameFieldStringValue = newFilename;
 			savePanel.title = @"Choose where to save unsigned data";
 			
-			if ([savePanel runModal] == NSFileHandlingPanelOKButton) {
-				auto saveURL = savePanel.URL;
-				[outData writeToURL:saveURL atomically:YES];
-			}
+			[savePanel beginSheetModalForWindow:NSApp.mainWindow completionHandler:^(NSModalResponse result) {
+				if (result == NSFileHandlingPanelOKButton) {
+					auto saveURL = savePanel.URL;
+					[outData writeToURL:saveURL atomically:YES];
+				}
+			}];
 		});
 	}
 	else {
@@ -459,7 +559,7 @@ static NSString * const kStrQuestion = @"❓";
 		auto alert = [NSAlert new];
 		alert.messageText = message;
 		alert.informativeText = informativeText;
-		[alert runModal];
+		[alert beginSheetModalForWindow:NSApp.mainWindow completionHandler:^(NSModalResponse result) {}];
 	});
 }
 

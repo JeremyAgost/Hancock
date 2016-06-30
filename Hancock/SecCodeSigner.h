@@ -125,6 +125,8 @@ extern "C" {
 	extern const CFStringRef kSecCodeSignerSDKRoot;
 	extern const CFStringRef kSecCodeSignerSigningTime;
 	
+	// Begin constants that aren't in the original
+	extern const CFStringRef kSecCodeSignerRequireTimestamp;
 	
 	/*!
 	 @function SecCodeSignerCreate
