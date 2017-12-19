@@ -118,7 +118,7 @@
 				TargetAttributes = {
 					3F9BF36C1D21CD5A00805054 = {
 						CreatedOnToolsVersion = 7.3.1;
-						DevelopmentTeam = F6FYZX89EQ;
+						DevelopmentTeam = SWD2B88S58;
 						DevelopmentTeamName = Tekserve;
 						ProvisioningStyle = Manual;
 					};
@@ -283,6 +283,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "Developer ID Application";
 				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = SWD2B88S58;
 				INFOPLIST_FILE = Hancock/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 10.10;
@@ -298,6 +299,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "Developer ID Application";
 				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = SWD2B88S58;
 				INFOPLIST_FILE = Hancock/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 10.10;
