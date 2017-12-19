@@ -94,7 +94,7 @@ static NSOpenPanel * _CreateOpenPanel()
 						
 						[self startSpinning];
 						
-						[self signPackageFile:signFileURL withIdentity:chosenIdentity];
+						[self signFile:signFileURL withIdentity:chosenIdentity];
 						
 						[self stopSpinning];
 						
