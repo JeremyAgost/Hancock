@@ -16,13 +16,13 @@ At least one certificate with a private key installed. This could be an Apple De
 
 ### Signing
 1. Select a valid certificate from the dropdown.
-![1](./imgs/Screen Shot 2016-06-29 at 10.26.07 PM.png)
+![1](./imgs/SelectIdentity.png)
 
 2. Select the mobileconfig/pkg to sign by clicking **Sign...**. You are also able to drag and drop.
-![2](./imgs/Screen Shot 2016-06-30 at 11.48.59 AM.png)
+![2](./imgs/DragNDrop.png)
 
 3. You will get prompted to allow access to your keychain. Choose **Allow** or choose **Always Allow**, if you plan on using that certificate again.
-![3](./imgs/Screen Shot 2016-06-29 at 11.40.32 AM.png)
+![3](./imgs/AllowPrompt.png)
 
 4. Choose where you want to save the signed file.
 
